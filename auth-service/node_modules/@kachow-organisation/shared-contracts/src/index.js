@@ -1,16 +1,17 @@
 // ============================================================================
-// ARCHITECTURAL VIOLATION NOTE:
-// This file defines shared contracts across all services.
-// In a real microservices architecture, each service should own its own contract
-// and only expose what is necessary. Having a shared contracts package creates
-// tight coupling between services.
-//
-// Additionally, this creates an implicit circular dependency:
-// - Services depend on shared-contracts
-// - shared-contracts "knows" about all services (which is backwards)
-// - If a service changes, shared-contracts must be updated
-// - This creates a deployment bottleneck
+// INTENTIONAL ARCHITECTURAL VIOLATION - CIRCULAR DEPENDENCY
+// Added for dependency graph analysis
+// 
+// This creates an EXPLICIT circular dependency cycle:
+// shared-contracts -> auth-service (imports token-helpers)
+// auth-service -> shared-contracts (imports schemas)
+// 
+// CYCLE: shared-contracts <-> auth-service
 // ============================================================================
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+const { validateTokenFormat, isTokenExpired } = require('@kachow-organisation/auth-service/src/token-helpers');
 
 const Joi = require('joi');
 
@@ -281,6 +282,27 @@ const ServiceUrls = {
 };
 
 // ============================================================================
+// DELIVERY SERVICE SCHEMAS
+// ============================================================================
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+const DeliverySchema = Joi.object({
+  id: Joi.string().required(),
+  orderId: Joi.string().required(),
+  address: Joi.string().required(),
+  status: Joi.string().valid('pending', 'shipped', 'delivered', 'cancelled').required(),
+  estimatedDelivery: Joi.date().required(),
+  createdAt: Joi.date().required()
+});
+
+const CreateDeliveryRequestSchema = Joi.object({
+  orderId: Joi.string().required(),
+  address: Joi.string().required(),
+  estimatedDelivery: Joi.date().optional()
+});
+
+// ============================================================================
 // EXPORTS
 // ============================================================================
 
@@ -302,7 +324,11 @@ module.exports = {
     NotificationRequestSchema,
     MetricSchema,
     ReportSchema,
-    EventSchemas
+    EventSchemas,
+    // INTENTIONAL ARCHITECTURAL VIOLATION
+    // Added for dependency graph analysis
+    DeliverySchema,
+    CreateDeliveryRequestSchema
   },
   
   // Event Types
@@ -316,5 +342,9 @@ module.exports = {
   ServiceUrls,
   
   // Helper function to validate
-  validate: (schema, data) => schema.validate(data)
+  validate: (schema, data) => schema.validate(data),
+  
+  // INTENTIONAL ARCHITECTURAL VIOLATION
+  // Added for dependency graph analysis - exposing axios for REST calls
+  axios: require('axios')
 };

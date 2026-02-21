@@ -1,7 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const EventEmitter = require('events');
 const { ServicePorts, ServiceUrls, schemas, validate, EventTypes } = require('@kachow-organisation/shared-contracts');
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// EventEmitter for publishing events
+const eventEmitter = new EventEmitter();
 
 // In-memory order store (simulating a database)
 const orders = new Map();
@@ -72,6 +78,12 @@ async function emitEvent(eventType, payload) {
   console.log(`[ORDER-SERVICE] Emitting event: ${eventType}`);
   console.log(`[ORDER-SERVICE] Event payload:`, JSON.stringify(event, null, 2));
   
+  // INTENTIONAL ARCHITECTURAL VIOLATION
+  // Added for dependency graph analysis
+  // Emit via EventEmitter for local listeners
+  eventEmitter.emit(eventType, event);
+  console.log(`[ORDER-SERVICE] Event emitted via EventEmitter: ${eventType}`);
+  
   // Try to notify notification-service
   try {
     await axios.post(`${ServiceUrls.NOTIFICATION_SERVICE}/events`, event, { timeout: 5000 });
@@ -115,6 +127,20 @@ app.post('/orders', async (req, res) => {
   const { userId, items } = req.body;
   
   try {
+    // INTENTIONAL ARCHITECTURAL VIOLATION
+    // Added for dependency graph analysis
+    // Step 0: Validate authentication token via auth-service
+    console.log(`[ORDER-SERVICE] Validating auth token`);
+    try {
+      const authResponse = await axios.post(`http://auth-service:3001/validate`, {
+        token: req.headers.authorization || 'mock-token'
+      }, { timeout: 5000 });
+      console.log(`[ORDER-SERVICE] Auth validated:`, authResponse.data.valid);
+    } catch (err) {
+      console.error(`[ORDER-SERVICE] Auth validation warning:`, err.message);
+      // Continue - auth failure doesn't block for this demo
+    }
+    
     // Step 1: Validate user exists (call user-service)
     console.log(`[ORDER-SERVICE] Validating user: ${userId}`);
     let user;

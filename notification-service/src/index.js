@@ -1,7 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const EventEmitter = require('events');
 const { ServicePorts, ServiceUrls, schemas, validate, EventTypes } = require('@kachow-organisation/shared-contracts');
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// EventEmitter for consuming events
+const eventEmitter = new EventEmitter();
 
 // In-memory notification store
 const notifications = new Map();
@@ -72,6 +78,21 @@ async function fetchOrder(orderId) {
 // ============================================================================
 // EVENT HANDLERS
 // ============================================================================
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// Register event listeners for EventEmitter
+// Listen to "OrderCreated" events
+eventEmitter.on('OrderCreated', async (event) => {
+  console.log('[NOTIFICATION-SERVICE] EventEmitter received OrderCreated event:', event);
+  await handleOrderCreated(event);
+});
+
+// Listen to "PaymentProcessed" events
+eventEmitter.on('PaymentProcessed', async (event) => {
+  console.log('[NOTIFICATION-SERVICE] EventEmitter received PaymentProcessed event:', event);
+  await handlePaymentProcessed(event);
+});
 
 /**
  * Handle OrderCreated event
@@ -218,6 +239,19 @@ app.post('/events', async (req, res) => {
  */
 app.post('/notify', async (req, res) => {
   console.log('[NOTIFICATION-SERVICE] POST /notify - Sending notification');
+  
+  // INTENTIONAL ARCHITECTURAL VIOLATION
+  // Added for dependency graph analysis
+  // Explicit REST call to user-service with literal URL
+  console.log('[NOTIFICATION-SERVICE] Calling user-service directly');
+  let userData = null;
+  try {
+    const userResponse = await axios.get(`http://user-service:3002/users/${req.body.userId}`, { timeout: 5000 });
+    userData = userResponse.data;
+    console.log('[NOTIFICATION-SERVICE] User data retrieved:', userData.username);
+  } catch (err) {
+    console.error('[NOTIFICATION-SERVICE] Direct user-service call failed:', err.message);
+  }
   
   // Validate request
   const validation = validate(schemas.NotificationRequestSchema, req.body);

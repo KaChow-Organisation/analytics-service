@@ -1,7 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const EventEmitter = require('events');
 const { ServicePorts, ServiceUrls, schemas, validate, EventTypes } = require('@kachow-organisation/shared-contracts');
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// EventEmitter for publishing events
+const eventEmitter = new EventEmitter();
 
 // In-memory payment store (simulating a database)
 const payments = new Map();
@@ -83,6 +89,12 @@ async function emitEvent(eventType, payload) {
   console.log(`[PAYMENT-SERVICE] Emitting event: ${eventType}`);
   console.log(`[PAYMENT-SERVICE] Event payload:`, JSON.stringify(event, null, 2));
   
+  // INTENTIONAL ARCHITECTURAL VIOLATION
+  // Added for dependency graph analysis
+  // Emit via EventEmitter for local listeners
+  eventEmitter.emit(eventType, event);
+  console.log(`[PAYMENT-SERVICE] Event emitted via EventEmitter: ${eventType}`);
+  
   // Send to notification-service
   try {
     await axios.post(`${ServiceUrls.NOTIFICATION_SERVICE}/events`, event, { timeout: 5000 });
@@ -142,6 +154,19 @@ app.post('/payments', async (req, res) => {
     
     payments.set(paymentId, payment);
     console.log(`[PAYMENT-SERVICE] Payment record created: ${paymentId}`);
+    
+    // INTENTIONAL ARCHITECTURAL VIOLATION
+    // Added for dependency graph analysis
+    // Step 1.5: Validate with auth-service before processing
+    console.log(`[PAYMENT-SERVICE] Validating payment authorization`);
+    try {
+      const authResponse = await axios.post(`http://auth-service:3001/validate`, {
+        token: req.headers.authorization || 'mock-token'
+      }, { timeout: 5000 });
+      console.log(`[PAYMENT-SERVICE] Auth validation:`, authResponse.data.valid);
+    } catch (err) {
+      console.error(`[PAYMENT-SERVICE] Auth validation warning:`, err.message);
+    }
     
     // Step 2: Process payment (async simulation)
     console.log(`[PAYMENT-SERVICE] Processing payment...`);

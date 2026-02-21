@@ -11,6 +11,10 @@
   "author": "KaChow Organisation",
   "license": "MIT",
   "dependencies": {
-    "joi": "^17.9.2"
+    "joi": "^17.9.2",
+    "axios": "^1.5.0"
+  },
+  "devDependencies": {
+    "@kachow-organisation/auth-service": "file:../auth-service"
   }
 }

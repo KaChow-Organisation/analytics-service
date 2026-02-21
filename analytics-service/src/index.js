@@ -1,16 +1,35 @@
 const express = require('express');
 const cors = require('cors');
-const { ServicePorts, EventTypes } = require('@kachow-organisation/shared-contracts');
+const axios = require('axios');
+const EventEmitter = require('events');
+const { ServicePorts, EventTypes, ServiceUrls } = require('@kachow-organisation/shared-contracts');
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// EventEmitter for consuming all events
+const eventEmitter = new EventEmitter();
 
 // ============================================================================
-// ARCHITECTURAL VIOLATION NOTE:
-// This analytics-service has a circular dependency with user-service.
-// It imports the entire user-service just to access UserSchema directly,
-// instead of making HTTP calls to the user-service API.
-// 
-// Additionally, this service maintains its own copy of order data structures
-// that mirror the order-service's internal models, violating service boundaries.
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// Direct REST calls to order-service and payment-service
 // ============================================================================
+
+// ============================================================================
+// INTENTIONAL ARCHITECTURAL VIOLATION - DB ACCESS
+// Added for dependency graph analysis
+// Direct access to other services' internal data stores
+// ============================================================================
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// Importing order-service's internal data store
+const orderDataStore = require('../order-service/src/index.js');
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// Importing payment-service's internal data store
+const paymentDataStore = require('../payment-service/src/index.js');
 
 // In-memory metrics store
 const metrics = [];
@@ -43,6 +62,39 @@ function generateMetricId() {
 // ============================================================================
 // EVENT HANDLING
 // ============================================================================
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// Register event listeners for EventEmitter - listens to ALL events
+// Listen to "OrderCreated" events
+eventEmitter.on('OrderCreated', async (event) => {
+  console.log('[ANALYTICS-SERVICE] EventEmitter received OrderCreated event:', event);
+  processEvent(event);
+});
+
+// Listen to "OrderUpdated" events
+eventEmitter.on('OrderUpdated', async (event) => {
+  console.log('[ANALYTICS-SERVICE] EventEmitter received OrderUpdated event:', event);
+  processEvent(event);
+});
+
+// Listen to "PaymentProcessed" events
+eventEmitter.on('PaymentProcessed', async (event) => {
+  console.log('[ANALYTICS-SERVICE] EventEmitter received PaymentProcessed event:', event);
+  processEvent(event);
+});
+
+// Listen to "PaymentFailed" events
+eventEmitter.on('PaymentFailed', async (event) => {
+  console.log('[ANALYTICS-SERVICE] EventEmitter received PaymentFailed event:', event);
+  processEvent(event);
+});
+
+// Listen to "UserCreated" events
+eventEmitter.on('UserCreated', async (event) => {
+  console.log('[ANALYTICS-SERVICE] EventEmitter received UserCreated event:', event);
+  processEvent(event);
+});
 
 /**
  * Store and process incoming events
@@ -400,6 +452,110 @@ app.get('/orders/summary', (req, res) => {
     source: 'Event reconstruction (may be incomplete/stale)',
     orderSummary,
     count: orderSummary.length
+  });
+});
+
+// ============================================================================
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// Direct REST calls to order-service and payment-service
+// ============================================================================
+
+/**
+ * GET /external/orders
+ * Fetches order data directly from order-service
+ * INTENTIONAL VIOLATION: Cross-service REST call
+ */
+app.get('/external/orders', async (req, res) => {
+  console.log('[ANALYTICS-SERVICE] INTENTIONAL VIOLATION: Calling order-service directly');
+  
+  try {
+    // INTENTIONAL ARCHITECTURAL VIOLATION
+    // Added for dependency graph analysis
+    const orderResponse = await axios.get(`http://order-service:3003/orders`, { timeout: 5000 });
+    
+    res.json({
+      source: 'order-service',
+      data: orderResponse.data,
+      warning: 'Direct REST call to order-service'
+    });
+  } catch (err) {
+    console.error('[ANALYTICS-SERVICE] Failed to fetch orders:', err.message);
+    res.status(503).json({ error: 'order-service unavailable' });
+  }
+});
+
+/**
+ * GET /external/payments
+ * Fetches payment data directly from payment-service
+ * INTENTIONAL VIOLATION: Cross-service REST call
+ */
+app.get('/external/payments', async (req, res) => {
+  console.log('[ANALYTICS-SERVICE] INTENTIONAL VIOLATION: Calling payment-service directly');
+  
+  try {
+    // INTENTIONAL ARCHITECTURAL VIOLATION
+    // Added for dependency graph analysis
+    const paymentResponse = await axios.get(`http://payment-service:3004/payments`, { timeout: 5000 });
+    
+    res.json({
+      source: 'payment-service',
+      data: paymentResponse.data,
+      warning: 'Direct REST call to payment-service'
+    });
+  } catch (err) {
+    console.error('[ANALYTICS-SERVICE] Failed to fetch payments:', err.message);
+    res.status(503).json({ error: 'payment-service unavailable' });
+  }
+});
+
+// ============================================================================
+// INTENTIONAL ARCHITECTURAL VIOLATION - DB ACCESS ENDPOINTS
+// Added for dependency graph analysis
+// These endpoints directly access other services' internal data stores
+// ============================================================================
+
+/**
+ * GET /violation/db/orders
+ * INTENTIONAL VIOLATION: Direct DB access to order-service data
+ */
+app.get('/violation/db/orders', (req, res) => {
+  console.log('[ANALYTICS-SERVICE] ⚠️ DB ACCESS VIOLATION: Accessing order-service internal data store');
+  
+  // INTENTIONAL ARCHITECTURAL VIOLATION
+  // Added for dependency graph analysis
+  // Directly accessing order-service's internal data
+  const orders = orderDataStore.orders || new Map();
+  const orderList = Array.from(orders.values());
+  
+  res.json({
+    violation: 'Direct DB access to order-service',
+    source: 'order-service/src/index.js',
+    orders: orderList,
+    count: orderList.length,
+    warning: 'This is an intentional architectural violation for dependency graph analysis'
+  });
+});
+
+/**
+ * GET /violation/db/payments
+ * INTENTIONAL VIOLATION: Direct DB access to payment-service data
+ */
+app.get('/violation/db/payments', (req, res) => {
+  console.log('[ANALYTICS-SERVICE] ⚠️ DB ACCESS VIOLATION: Accessing payment-service internal data store');
+  
+  // INTENTIONAL ARCHITECTURAL VIOLATION
+  // Added for dependency graph analysis
+  // Directly accessing payment-service's internal data
+  const payments = paymentDataStore.payments || new Map();
+  const paymentList = Array.from(payments.values());
+  
+  res.json({
+    violation: 'Direct DB access to payment-service',
+    source: 'payment-service/src/index.js',
+    payments: paymentList,
+    count: paymentList.length,
+    warning: 'This is an intentional architectural violation for dependency graph analysis'
   });
 });
 

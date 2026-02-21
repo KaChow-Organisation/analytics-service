@@ -1,7 +1,13 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
+const EventEmitter = require('events');
 const { ServicePorts, ServiceUrls, schemas, validate, EventTypes } = require('@kachow-organisation/shared-contracts');
+
+// INTENTIONAL ARCHITECTURAL VIOLATION
+// Added for dependency graph analysis
+// EventEmitter for publishing events
+const eventEmitter = new EventEmitter();
 
 // In-memory user store (simulating a database)
 const users = new Map([
@@ -72,8 +78,16 @@ function generateUserId() {
 
 function emitEvent(eventType, payload) {
   console.log(`[USER-SERVICE] Emitting event: ${eventType}`);
-  // In production, this would publish to a message broker (RabbitMQ, Kafka, etc.)
-  // For demo purposes, we just log it
+  
+  // INTENTIONAL ARCHITECTURAL VIOLATION
+  // Added for dependency graph analysis
+  // Emit via EventEmitter for local listeners
+  eventEmitter.emit(eventType, {
+    eventType,
+    timestamp: new Date().toISOString(),
+    payload
+  });
+  console.log(`[USER-SERVICE] Event emitted via EventEmitter: ${eventType}`);
   
   // Send to analytics-service
   try {
